@@ -1,0 +1,83 @@
+/* 1. Reset & Base Configuration */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+:root {
+    --bg-dark: #020617;
+    --staff-cyan: rgba(8, 145, 178, 0.2);
+    --student-indigo: rgba(67, 56, 202, 0.2);
+    --text-main: #f8fafc;
+    --text-muted: #64748b;
+}
+
+body {
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    overflow-x: hidden;
+    min-height: 100vh;
+    line-height: 1.5;
+}
+
+/* 2. The Professional Mixture Background */
+/* This creates the Cyan/Indigo blend without images */
+.mesh-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    background: 
+        radial-gradient(circle at 20% 30%, var(--staff-cyan) 0%, transparent 40%),
+        radial-gradient(circle at 80% 70%, var(--student-indigo) 0%, transparent 40%),
+        var(--bg-dark);
+    filter: blur(80px);
+    pointer-events: none;
+}
+
+/* 3. The Interactive Watermark */
+.bg-branding {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 10vw;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.015); /* Nearly invisible, pops on movement */
+    text-transform: uppercase;
+    white-space: nowrap;
+    z-index: -1;
+    pointer-events: none;
+    letter-spacing: -2px;
+    user-select: none;
+}
+
+.bg-branding span {
+    font-weight: 800;
+}
+
+/* 4. Shared Animation Classes */
+/* Used by home.js to trigger reveals */
+[data-reveal] {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-reveal].active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 5. Portal Shared Logic */
+.parallax {
+    transition: transform 0.2s ease-out; /* Makes the JS tilt look smooth */
+    will-change: transform;
+}
+
+/* 6. Selection Color */
+::selection {
+    background: rgba(34, 211, 238, 0.3);
+    color: #fff;
+}

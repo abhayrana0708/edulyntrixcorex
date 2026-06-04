@@ -1,0 +1,192 @@
+/* Core Reset & Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Inter", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  background: #020617; 
+  color: #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== Animated Mesh Background (Student Indigo Theme) ===== */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(125deg, #3730a3, #1e40af, #020617, #4338ca);
+  background-size: 400% 400%;
+  animation: meshShift 15s ease infinite;
+  filter: blur(80px);
+  z-index: -1;
+}
+
+@keyframes meshShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ===== Background Branding Watermark (EdulyntrixCoreX) ===== */
+.bg-branding {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8vw;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.02);
+  white-space: nowrap;
+  z-index: -1;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: -2px;
+}
+
+.bg-branding span {
+  color: rgba(99, 102, 241, 0.05); 
+}
+
+/* ===== Layout & Perspective ===== */
+.page-wrapper {
+  perspective: 1000px;
+  width: 100%;
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+}
+
+/* ===== Glass Card (Supports Login, Regisration, & Reset) ===== */
+.login-card {
+  width: 100%;
+  max-width: 440px; /* Default for Login/Reset */
+  padding: 3.5rem;
+  border-radius: 30px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(30px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 1s ease, transform 1s ease, box-shadow 0.3s ease;
+}
+
+/* Wider card for Registration specifically */
+.login-card.wide {
+  max-width: 550px;
+}
+
+.login-card.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== Header Section ===== */
+.login-header h1 {
+  font-size: 2.2rem;
+  font-weight: 300;
+  letter-spacing: -1px;
+  color: #fff;
+}
+
+.login-header h1 b {
+  font-weight: 800;
+  background: linear-gradient(to right, #818cf8, #3b82f6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.login-header p {
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #94a3b8;
+}
+
+/* ===== Form Layouts ===== */
+.login-form { margin-top: 2.5rem; }
+
+/* Grid for Registration Fields (First Name/Last Name) */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.login-form input[type="text"], 
+.login-form input[type="password"],
+.login-form input[type="email"],
+.login-form input[type="tel"] {
+  width: 100%;
+  padding: 1.1rem;
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  transition: all 0.3s;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: #818cf8;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 15px rgba(129, 140, 248, 0.2);
+}
+
+/* ===== Actions & Button ===== */
+button {
+  width: 100%;
+  padding: 1.1rem;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #4338ca, #1e40af);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.3s ease;
+  margin-top: 0.5rem;
+}
+
+button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(67, 56, 202, 0.4);
+}
+
+.form-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+  color: #94a3b8;
+}
+
+.form-options a { color: #818cf8; text-decoration: none; }
+
+.login-footer {
+  margin-top: 2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.login-footer a {
+    color: #818cf8;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 480px) {
+    .form-grid { grid-template-columns: 1fr; gap: 0; }
+    .login-card { padding: 2rem; }
+}
