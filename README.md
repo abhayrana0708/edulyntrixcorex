@@ -13,6 +13,7 @@ Faculty Members
 Heads of Departments (HOD)
 Administrators
 The platform enables centralized management of academic and administrative processes while ensuring security, scalability, and ease of use.
+
 ✨ Key Features
 Student Portal
 Student Registration
@@ -46,6 +47,7 @@ Grade Management
 Student Records
 Staff Records
 Reports & Analytics
+
 🛠️ Technology Stack
 Frontend
 HTML5
@@ -61,6 +63,7 @@ Git
 GitHub
 Deployment
 InfinityFree Hosting
+
 🗄️ Database Architecture
 The system utilizes a relational MySQL database containing 17+ interconnected tables including:
 students
@@ -73,6 +76,7 @@ timetable
 leave_requests
 users
 roles
+
 🔒 Security Features
 Session-Based Authentication
 Role-Based Access Control
@@ -81,6 +85,7 @@ Input Validation
 SQL Injection Prevention (PDO)
 Session Regeneration
 Secure Login Workflow
+
 📊 System Modules
 Academic Management
 Student Enrollment
@@ -95,6 +100,7 @@ Reporting
 Attendance Reports
 Academic Reports
 Department Reports
+
 📁 Project Structure
 Plain text
 edulyntrixcorex/
@@ -106,6 +112,7 @@ edulyntrixcorex/
 ├── uploads/
 │
 └── database/
+
 ⚙️ Installation Guide
 Clone Repository
 Bash
@@ -116,6 +123,7 @@ Import the SQL file.
 Update database credentials inside:
 PHP
 includes/db_connect.php
+
 Run Locally
 Install XAMPP.
 Move project to:
@@ -127,7 +135,9 @@ MySQL
 Open browser:
 Plain text
 http://localhost/edulyntrixcorex
+
 🌍 Deployment
+
 The application has been successfully deployed on InfinityFree hosting.
 Deployment steps:
 Database Export & Import
@@ -146,6 +156,7 @@ MVC-inspired Structure
 Deployment & Hosting
 Version Control
 Software Engineering Practices
+
 📸 Screenshots
 Add screenshots for:
 Homepage
@@ -154,6 +165,7 @@ Faculty Dashboard
 HOD Dashboard
 Attendance Module
 Timetable Module
+
 👨‍💻 Author
 Abhay Rana
 BCA Student | Software Developer
