@@ -1,4 +1,4 @@
-🎓 EduLyntrix CoreX
+🎓 EduLyntrixCoreX
 
 A comprehensive College Management System designed to streamline academic administration, student management, faculty operations, attendance tracking, timetable management, and institutional workflows.
 🚀 Live Demo
@@ -15,6 +15,7 @@ Administrators
 The platform enables centralized management of academic and administrative processes while ensuring security, scalability, and ease of use.
 
 ✨ Key Features
+
 Student Portal
 Student Registration
 Secure Login System
@@ -49,6 +50,7 @@ Staff Records
 Reports & Analytics
 
 🛠️ Technology Stack
+
 Frontend
 HTML5
 CSS3
@@ -65,6 +67,7 @@ Deployment
 InfinityFree Hosting
 
 🗄️ Database Architecture
+
 The system utilizes a relational MySQL database containing 17+ interconnected tables including:
 students
 staff
@@ -78,6 +81,7 @@ users
 roles
 
 🔒 Security Features
+
 Session-Based Authentication
 Role-Based Access Control
 Password Encryption
@@ -87,6 +91,7 @@ Session Regeneration
 Secure Login Workflow
 
 📊 System Modules
+
 Academic Management
 Student Enrollment
 Attendance Tracking
@@ -102,6 +107,7 @@ Academic Reports
 Department Reports
 
 📁 Project Structure
+
 Plain text
 edulyntrixcorex/
 │
@@ -114,6 +120,7 @@ edulyntrixcorex/
 └── database/
 
 ⚙️ Installation Guide
+
 Clone Repository
 Bash
 git clone <repository-url>
@@ -158,6 +165,7 @@ Version Control
 Software Engineering Practices
 
 📸 Screenshots
+
 Add screenshots for:
 Homepage
 Student Dashboard
@@ -167,6 +175,7 @@ Attendance Module
 Timetable Module
 
 👨‍💻 Author
+
 Abhay Rana
 BCA Student | Software Developer
 Skills:
