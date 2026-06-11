@@ -177,8 +177,11 @@ Timetable Module
 👨‍💻 Author
 
 Abhay Rana
+
 BCA Student | Software Developer
+
 Skills:
+
 PHP
 MySQL
 JavaScript
@@ -188,8 +191,11 @@ Git
 GitHub
 Database Design
 Web Development
+
 📄 License
-This project is developed for educational and portfolio purposes. :::
+
+This project is developed for educational and portfolio purposes
+
 Before putting it on GitHub, I'd also add:
 4–6 screenshots
 ER Diagram image
