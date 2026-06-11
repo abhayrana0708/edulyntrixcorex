@@ -1,8 +1,11 @@
 🎓 EduLyntrix CoreX
+
 A comprehensive College Management System designed to streamline academic administration, student management, faculty operations, attendance tracking, timetable management, and institutional workflows.
 🚀 Live Demo
-🌐 Live Website: https://edulyntrixcorex.rf.gd⁠�
+🌐 Live Website:https://edulyntrixcorex.rf.gd⁠�
+
 📌 Overview
+
 EduLyntrix CoreX is a role-based educational management platform developed to digitize and automate college operations.
 The system provides dedicated dashboards and functionality for:
 Students
