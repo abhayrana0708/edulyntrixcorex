@@ -164,16 +164,6 @@ Deployment & Hosting
 Version Control
 Software Engineering Practices
 
-📸 Screenshots
-
-Add screenshots for:
-Homepage
-Student Dashboard
-Faculty Dashboard
-HOD Dashboard
-Attendance Module
-Timetable Module
-
 👨‍💻 Author
 
 Abhay Rana
