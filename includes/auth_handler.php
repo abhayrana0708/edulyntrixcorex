@@ -1,21 +1,44 @@
 <?php
+
+declare(strict_types=1);
+
 /**
  * ============================================================
  * EDULYNTRIX CORE X
  * STUDENT AUTHENTICATION ENGINE
- * FINAL FIXED VERSION
+ * STABLE VERSION
  * ============================================================
  */
 
 if (session_status() === PHP_SESSION_NONE) {
+
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path'     => '/',
+        'secure'   => !empty($_SERVER['HTTPS']),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+
     session_start();
 }
 
 require_once __DIR__ . '/db_connect.php';
 
-/* ============================================================
-METHOD VALIDATION
-============================================================ */
+/*
+|--------------------------------------------------------------------------
+| CONFIG
+|--------------------------------------------------------------------------
+*/
+
+define('MAX_LOGIN_ATTEMPTS', 5);
+define('LOCKOUT_TIME', 900);
+
+/*
+|--------------------------------------------------------------------------
+| POST ONLY
+|--------------------------------------------------------------------------
+*/
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
@@ -26,9 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-/* ============================================================
-INPUTS
-============================================================ */
+/*
+|--------------------------------------------------------------------------
+| RATE LIMITING
+|--------------------------------------------------------------------------
+*/
+
+$_SESSION['login_attempts'] =
+    $_SESSION['login_attempts'] ?? 0;
+
+$_SESSION['last_attempt'] =
+    $_SESSION['last_attempt'] ?? 0;
+
+if (
+    $_SESSION['login_attempts'] >= MAX_LOGIN_ATTEMPTS
+    &&
+    (time() - $_SESSION['last_attempt']) < LOCKOUT_TIME
+) {
+
+    header(
+        'Location: ../public/frontend/student/student_login.php?error=locked'
+    );
+
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| INPUTS
+|--------------------------------------------------------------------------
+*/
 
 $student_id =
     trim($_POST['student_id'] ?? '');
@@ -36,9 +86,11 @@ $student_id =
 $password =
     trim($_POST['password'] ?? '');
 
-/* ============================================================
-VALIDATION
-============================================================ */
+/*
+|--------------------------------------------------------------------------
+| VALIDATION
+|--------------------------------------------------------------------------
+*/
 
 if (
     empty($student_id)
@@ -56,21 +108,16 @@ if (
 try {
 
     /*
-    =========================================================
-    STUDENT FETCH
-    =========================================================
+    |--------------------------------------------------------------------------
+    | FETCH STUDENT
+    |--------------------------------------------------------------------------
     */
 
     $stmt = $pdo->prepare("
-
         SELECT *
-
         FROM students
-
         WHERE student_id = ?
-
         LIMIT 1
-
     ");
 
     $stmt->execute([$student_id]);
@@ -79,12 +126,15 @@ try {
         $stmt->fetch(PDO::FETCH_ASSOC);
 
     /*
-    =========================================================
-    INVALID USER
-    =========================================================
+    |--------------------------------------------------------------------------
+    | USER NOT FOUND
+    |--------------------------------------------------------------------------
     */
 
     if (!$student) {
+
+        $_SESSION['login_attempts']++;
+        $_SESSION['last_attempt'] = time();
 
         header(
             'Location: ../public/frontend/student/student_login.php?error=invalid'
@@ -94,36 +144,57 @@ try {
     }
 
     /*
-    =========================================================
-    PASSWORD VERIFY
-    SUPPORT:
-    - plain text
-    - hashed passwords
-    =========================================================
+    |--------------------------------------------------------------------------
+    | PASSWORD VALIDATION
+    |--------------------------------------------------------------------------
     */
 
-    $password_valid = false;
+    $passwordValid = false;
 
     if (
+        !empty($student['password'])
+        &&
         password_verify(
             $password,
             $student['password']
         )
     ) {
 
-        $password_valid = true;
-
-    } elseif (
-
-        trim($password)
-        === trim($student['password'])
-
+        $passwordValid = true;
+    }
+    elseif (
+        $password === $student['password']
     ) {
 
-        $password_valid = true;
+        $passwordValid = true;
+
+        /*
+        ----------------------------------------------------------
+        AUTO HASH UPGRADE
+        ----------------------------------------------------------
+        */
+
+        $newHash = password_hash(
+            $password,
+            PASSWORD_DEFAULT
+        );
+
+        $upgradeStmt = $pdo->prepare("
+            UPDATE students
+            SET password = ?
+            WHERE student_id = ?
+        ");
+
+        $upgradeStmt->execute([
+            $newHash,
+            $student['student_id']
+        ]);
     }
 
-    if (!$password_valid) {
+    if (!$passwordValid) {
+
+        $_SESSION['login_attempts']++;
+        $_SESSION['last_attempt'] = time();
 
         header(
             'Location: ../public/frontend/student/student_login.php?error=invalid'
@@ -133,16 +204,55 @@ try {
     }
 
     /*
-    =========================================================
-    STATUS CHECK
-    =========================================================
+    |--------------------------------------------------------------------------
+    | PASSWORD REHASH
+    |--------------------------------------------------------------------------
     */
 
     if (
-        isset($student['status'])
+        !empty($student['password'])
         &&
-        strtolower($student['status']) !== 'active'
+        password_get_info(
+            $student['password']
+        )['algo']
+        &&
+        password_needs_rehash(
+            $student['password'],
+            PASSWORD_DEFAULT
+        )
     ) {
+
+        $newHash = password_hash(
+            $password,
+            PASSWORD_DEFAULT
+        );
+
+        $updateStmt = $pdo->prepare("
+            UPDATE students
+            SET password = ?
+            WHERE student_id = ?
+        ");
+
+        $updateStmt->execute([
+            $newHash,
+            $student['student_id']
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | STATUS CHECK
+    |--------------------------------------------------------------------------
+    */
+
+    $status =
+        strtolower(
+            trim(
+                (string)($student['status'] ?? 'active')
+            )
+        );
+
+    if ($status !== 'active') {
 
         header(
             'Location: ../public/frontend/student/student_login.php?error=inactive'
@@ -152,76 +262,69 @@ try {
     }
 
     /*
-    =========================================================
-    SESSION SECURITY
-    =========================================================
+    |--------------------------------------------------------------------------
+    | RESET ATTEMPTS
+    |--------------------------------------------------------------------------
     */
 
-    session_unset();
+    $_SESSION['login_attempts'] = 0;
+    $_SESSION['last_attempt']   = 0;
+
+    /*
+    |--------------------------------------------------------------------------
+    | SESSION SECURITY
+    |--------------------------------------------------------------------------
+    */
 
     session_regenerate_id(true);
 
     /*
-    =========================================================
-    CORE SESSION
-    =========================================================
+    |--------------------------------------------------------------------------
+    | CORE SESSION
+    |--------------------------------------------------------------------------
     */
 
     $_SESSION['logged_in'] = true;
-
-    $_SESSION['role'] =
-        'student';
-
-    $_SESSION['user_role'] =
-        'student';
-
-    /*
-    =========================================================
-    STUDENT DATA
-    =========================================================
-    */
+    $_SESSION['role']      = 'student';
+    $_SESSION['user_role'] = 'student';
 
     $_SESSION['student_id'] =
-        trim($student['student_id']);
+        $student['student_id'];
 
     $_SESSION['full_name'] =
-        $student['full_name'];
+        $student['full_name'] ?? '';
 
     $_SESSION['dept_id'] =
-        $student['dept_id'];
+        $student['dept_id'] ?? 0;
 
     $_SESSION['semester'] =
-        $student['current_semester'];
+        $student['current_semester']
+        ?? 1;
 
     $_SESSION['profile_pic'] =
-        $student['profile_pic']
-        ?: 'default.png';
+        !empty($student['profile_pic'])
+            ? $student['profile_pic']
+            : 'default.png';
 
     $_SESSION['email'] =
-        $student['email'] ?? '';
+        $student['email']
+        ?? '';
 
     /*
-    =========================================================
-    DEBUG
-    =========================================================
+    |--------------------------------------------------------------------------
+    | LOGIN LOG
+    |--------------------------------------------------------------------------
     */
 
-    $_SESSION['debug_student'] = [
-
-        'student_id' =>
-            $_SESSION['student_id'],
-
-        'dept_id' =>
-            $_SESSION['dept_id'],
-
-        'semester' =>
-            $_SESSION['semester']
-    ];
+    error_log(
+        'STUDENT_LOGIN_SUCCESS: '
+        . $student['student_id']
+    );
 
     /*
-    =========================================================
-    REDIRECT
-    =========================================================
+    |--------------------------------------------------------------------------
+    | REDIRECT
+    |--------------------------------------------------------------------------
     */
 
     header(
@@ -231,48 +334,16 @@ try {
     exit;
 
 }
-
-catch(PDOException $e){
+catch (PDOException $e) {
 
     error_log(
-        'STUDENT_AUTH_ERROR : '
+        'STUDENT_AUTH_ERROR: '
         . $e->getMessage()
     );
 
-    die("
+    header(
+        'Location: ../public/frontend/student/student_login.php?error=system'
+    );
 
-        <div style='
-            padding:25px;
-            margin:30px;
-            background:#fff1f2;
-            border:1px solid #fecdd3;
-            border-radius:16px;
-            color:#dc2626;
-            font-family:Arial;
-        '>
-
-            <h3 style='margin-top:0;'>
-
-                STUDENT AUTH FAILURE
-
-            </h3>
-
-            <p>
-
-                Authentication engine crashed.
-
-            </p>
-
-            <hr style='opacity:.2;'>
-
-            <small>
-
-                " . htmlspecialchars($e->getMessage()) . "
-
-            </small>
-
-        </div>
-
-    ");
+    exit;
 }
-?>

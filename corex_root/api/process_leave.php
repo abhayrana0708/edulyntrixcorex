@@ -1,45 +1,205 @@
 <?php
-header('Content-Type: application/json');
-// Updated path to reach your includes folder from corex_root/api/
-require_once '../../includes/db_connect.php'; 
-session_start();
 
-/** 1. AUTHENTICATION SHIELD **/
-// Updated to check for 'faculty' or 'hod' roles based on your Staff Module setup
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized Access.']);
+header('Content-Type: application/json');
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+require_once '../../includes/db_connect.php';
+
+/*
+|--------------------------------------------------------------------------
+| AUTHORIZATION
+|--------------------------------------------------------------------------
+*/
+
+$role = strtolower(
+    trim(
+        $_SESSION['role']
+        ??
+        $_SESSION['user_role']
+        ??
+        ''
+    )
+);
+
+if (!in_array($role, ['hod', 'admin', 'faculty'])) {
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized Access',
+        'debug_role' => $role
+    ]);
+
     exit;
 }
 
-/** 2. DATA ACQUISITION **/
-$data = json_decode(file_get_contents('php://input'), true);
-$leave_id = $data['id'] ?? null;
-$new_status = $data['status'] ?? null; // Expecting 'Approved' or 'Rejected'
-$staff_id = $_SESSION['user_id']; 
+/*
+|--------------------------------------------------------------------------
+| SESSION DATA
+|--------------------------------------------------------------------------
+*/
 
-if (!$leave_id || !$new_status) {
-    echo json_encode(['success' => false, 'message' => 'Missing Request Parameters.']);
+$staff_id = (int)($_SESSION['user_id'] ?? 0);
+$dept_id  = (int)($_SESSION['dept_id'] ?? 0);
+
+if ($staff_id <= 0) {
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid Session'
+    ]);
+
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| REQUEST DATA
+|--------------------------------------------------------------------------
+*/
+
+$input = json_decode(
+    file_get_contents('php://input'),
+    true
+);
+
+$leave_id =
+    $input['id']
+    ??
+    $_POST['id']
+    ??
+    null;
+
+$status =
+    $input['status']
+    ??
+    $_POST['status']
+    ??
+    null;
+
+if (
+    empty($leave_id)
+    ||
+    empty($status)
+) {
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Missing Request Parameters'
+    ]);
+
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| VALID STATUS
+|--------------------------------------------------------------------------
+*/
+
+$status = ucfirst(strtolower(trim($status)));
+
+if (
+    !in_array(
+        $status,
+        ['Approved', 'Rejected']
+    )
+) {
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid Status'
+    ]);
+
     exit;
 }
 
 try {
-    /** 3. SECURITY & EXECUTION **/
-    // We update status, the reviewer ID, and the current timestamp
-    // The query ensures only the relevant leave record is touched
-    $stmt = $pdo->prepare("UPDATE leave_requests 
-                           SET status = ?, 
-                               reviewed_by = ?, 
-                               review_date = NOW() 
-                           WHERE leave_id = ?");
-    
-    $stmt->execute([$new_status, $staff_id, $leave_id]);
 
-    if ($stmt->rowCount() > 0) {
-        echo json_encode(['success' => true, 'message' => 'Terminal Synchronized.']);
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFY REQUEST
+    |--------------------------------------------------------------------------
+    */
+
+    if ($role === 'hod') {
+
+        $verify = $pdo->prepare("
+            SELECT leave_id
+            FROM leave_requests
+            WHERE leave_id = ?
+            AND dept_id = ?
+            AND status = 'Pending'
+            LIMIT 1
+        ");
+
+        $verify->execute([
+            $leave_id,
+            $dept_id
+        ]);
+
     } else {
-        echo json_encode(['success' => false, 'message' => 'Record mismatch or no changes made.']);
+
+        $verify = $pdo->prepare("
+            SELECT leave_id
+            FROM leave_requests
+            WHERE leave_id = ?
+            AND status = 'Pending'
+            LIMIT 1
+        ");
+
+        $verify->execute([
+            $leave_id
+        ]);
     }
+
+    if (!$verify->fetch()) {
+
+        echo json_encode([
+            'success' => false,
+            'message' => 'Leave Request Not Found'
+        ]);
+
+        exit;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE REQUEST
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        UPDATE leave_requests
+        SET
+            status = ?,
+            reviewed_by = ?,
+            review_date = NOW()
+        WHERE leave_id = ?
+    ");
+
+    $stmt->execute([
+        $status,
+        $staff_id,
+        $leave_id
+    ]);
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Leave Request ' . $status
+    ]);
+
 } catch (PDOException $e) {
-    // Hidden internal error details for security, providing a clean response
-    echo json_encode(['success' => false, 'message' => 'Database Sync Failure.']);
+
+    error_log(
+        'LEAVE_PROCESS_ERROR: '
+        . $e->getMessage()
+    );
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Database Sync Failure'
+    ]);
 }

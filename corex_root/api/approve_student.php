@@ -1,86 +1,264 @@
 <?php
 /**
  * EDULYNTRIX CORE X - ENROLLMENT APPROVAL NODE
- * Version 11.2.0: Multi-Format Data Parser
+ * FULL FIXED VERSION
  */
+
 header('Content-Type: application/json');
+
 require_once '../../includes/db_connect.php';
 
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// 1. Authority Check
-if (!isset($_SESSION['role']) || ($_SESSION['role'] !== 'hod' && $_SESSION['role'] !== 'admin')) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized Access Protocol.']);
+/*
+|--------------------------------------------------------------------------
+| AUTHORIZATION
+|--------------------------------------------------------------------------
+*/
+
+if (
+    !isset($_SESSION['role']) ||
+    !in_array($_SESSION['role'], ['hod', 'admin'])
+) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Unauthorized Access'
+    ]);
     exit;
 }
 
-/** * BUG FIX: DATA PARSING 
- * We check $_POST first, then fallback to JSON input to ensure the ID is captured.
- */
+/*
+|--------------------------------------------------------------------------
+| GET REQUEST ID
+|--------------------------------------------------------------------------
+*/
+
 $queue_id = $_POST['id'] ?? null;
 
 if (!$queue_id) {
-    $json_data = json_decode(file_get_contents('php://input'), true);
-    $queue_id = $json_data['id'] ?? null;
+
+    $json = json_decode(
+        file_get_contents('php://input'),
+        true
+    );
+
+    $queue_id = $json['id'] ?? null;
 }
 
 if (!$queue_id) {
-    echo json_encode(['success' => false, 'message' => 'Invalid Node ID. Protocol requires a valid Identifier.']);
+
+    echo json_encode([
+        'success' => false,
+        'message' => 'Invalid Queue ID'
+    ]);
+
     exit;
 }
 
 try {
+
     $pdo->beginTransaction();
 
-    // 2. Fetch full data from Enrollment Queue
-    $stmt = $pdo->prepare("SELECT * FROM enrollment_queue WHERE id = ? AND status = 'pending' LIMIT 1");
+    /*
+    |--------------------------------------------------------------------------
+    | FETCH PENDING STUDENT
+    |--------------------------------------------------------------------------
+    */
+
+    $stmt = $pdo->prepare("
+        SELECT *
+        FROM enrollment_queue
+        WHERE id = ?
+        AND status = 'pending'
+        LIMIT 1
+    ");
+
     $stmt->execute([$queue_id]);
+
     $temp = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$temp) {
-        throw new Exception("Student request node not found or already processed in the registry.");
+
+        throw new Exception(
+            'Student not found or already processed.'
+        );
     }
+        /*
+    |--------------------------------------------------------------------------
+    | DUPLICATE CHECK
+    |--------------------------------------------------------------------------
+    */
 
-    /**
-     * 3. Full Registry Integration
-     * Fixed the placeholder count to match your actual execution array.
-     */
-    $insertSql = "INSERT INTO students (
-        student_id, 
-        full_name, 
-        email,
-        dept_id, 
-        password, 
-        status, 
-        current_semester,
-        semester,
-        academic_year,
-        enrollment_date
-    ) VALUES (:sid, :name, :email, :did, :pass, 'Active', '1st', 1, 1, NOW())";
+    $check = $pdo->prepare("
+        SELECT id
+        FROM students
+        WHERE student_id = ?
+        LIMIT 1
+    ");
 
-    $insertStmt = $pdo->prepare($insertSql);
-    
-    // Mapping the data from enrollment_queue to students table
-    $insertStmt->execute([
-        ':sid'   => $temp['student_id'],
-        ':name'  => $temp['student_name'],
-        ':email' => $temp['email'],
-        ':did'   => $temp['dept_id'] ?? 0, // Fallback to 0 if dept_id is missing
-        ':pass'  => $temp['password'] 
+    $check->execute([
+        $temp['student_id']
     ]);
 
-    // 4. Update Queue Status to 'approved'
-    $updateStmt = $pdo->prepare("UPDATE enrollment_queue SET status = 'approved' WHERE id = ?");
-    $updateStmt->execute([$queue_id]);
+    if ($check->fetch()) {
+
+        throw new Exception(
+            'Student already exists in registry.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | INSERT STUDENT
+    |--------------------------------------------------------------------------
+    */
+
+    $insert = $pdo->prepare("
+        INSERT INTO students
+        (
+            student_id,
+            full_name,
+            email,
+            phone,
+            dept_id,
+            password,
+
+            father_name,
+            father_phone,
+
+            mother_name,
+            mother_phone,
+
+            address,
+            profile_pic,
+
+            current_semester,
+            semester,
+            academic_year,
+
+            status,
+            enrollment_date
+        )
+        VALUES
+        (
+            :student_id,
+            :full_name,
+            :email,
+            :phone,
+            :dept_id,
+            :password,
+
+            :father_name,
+            :father_phone,
+
+            :mother_name,
+            :mother_phone,
+
+            :address,
+            :profile_pic,
+
+            1,
+            1,
+            1,
+
+            'Active',
+            CURDATE()
+        )
+    ");
+
+    $insert->execute([
+
+        ':student_id'   => $temp['student_id'],
+        ':full_name'    => $temp['student_name'],
+        ':email'        => $temp['email'],
+        ':phone'        => $temp['phone'],
+        ':dept_id'      => $temp['dept_id'],
+        ':password'     => $temp['password'],
+
+        ':father_name'  => $temp['father_name'],
+        ':father_phone' => $temp['father_phone'],
+
+        ':mother_name'  => $temp['mother_name'],
+        ':mother_phone' => $temp['mother_phone'],
+
+        ':address'      => $temp['address'],
+        ':profile_pic'  => $temp['profile_pic']
+    ]);
+        /*
+    |--------------------------------------------------------------------------
+    | UPDATE QUEUE STATUS
+    |--------------------------------------------------------------------------
+    */
+
+    $update = $pdo->prepare("
+        UPDATE enrollment_queue
+        SET status = 'approved'
+        WHERE id = ?
+    ");
+
+    $update->execute([
+        $queue_id
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMMIT TRANSACTION
+    |--------------------------------------------------------------------------
+    */
 
     $pdo->commit();
-    
+
     echo json_encode([
-        'success' => true, 
-        'message' => "Node Approved: " . htmlspecialchars($temp['student_name']) . " integrated into Core Registry."
+
+        'success' => true,
+
+        'message' =>
+            'Student Approved Successfully'
+
     ]);
 
 } catch (Exception $e) {
-    if ($pdo->inTransaction()) { $pdo->rollBack(); }
-    echo json_encode(['success' => false, 'message' => 'System Error: ' . $e->getMessage()]);
+
+    if (
+        isset($pdo)
+        &&
+        $pdo->inTransaction()
+    ) {
+        $pdo->rollBack();
+    }
+
+    echo json_encode([
+
+        'success' => false,
+
+        'message' => $e->getMessage()
+
+    ]);
+
+} catch (PDOException $e) {
+
+    if (
+        isset($pdo)
+        &&
+        $pdo->inTransaction()
+    ) {
+        $pdo->rollBack();
+    }
+
+    error_log(
+        'APPROVAL_ERROR: '
+        . $e->getMessage()
+    );
+
+    echo json_encode([
+
+        'success' => false,
+
+        'message' =>
+            'Database Error'
+
+    ]);
 }
+?>

@@ -786,7 +786,7 @@ body{
 
 </a>
 
-<a href="/EdulyntrixCoreX/public/frontend/index.php">
+<a href="/edulyntrixcorex/public/frontend/index.php">
 
     Portal Home
 

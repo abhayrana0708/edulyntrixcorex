@@ -100,65 +100,166 @@ try {
 <script>
 /**
  * EDULYNTRIX CORE X - LEAVE AUTHORITY PROCESSOR
+ * NO PAGE REFRESH VERSION
  */
+
 window.updateLeave = function(e, id, action) {
-    if(e) e.preventDefault();
-    
-    const card = document.getElementById(`leave-card-${id}`);
-    // Fixed path relative to the root URL structure
-    const apiPath = '/edulyntrixcorex/corex_root/api/update_leave.php';
-    
-    const btn = e ? e.currentTarget : null;
-    if(btn) {
-        btn.style.opacity = '0.5';
-        btn.style.pointerEvents = 'none';
-        btn.innerHTML = 'Syncing...';
+
+    if(e){
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    const card =
+        document.getElementById(
+            `leave-card-${id}`
+        );
+
+    const apiPath =
+        '/edulyntrixcorex/corex_root/api/process_leave.php';
+
+    const btn =
+        e ? e.currentTarget : null;
+
+    if(btn){
+
+        btn.disabled = true;
+
+        btn.style.opacity = '0.6';
+
+        btn.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
     }
 
     fetch(apiPath, {
+
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `request_id=${encodeURIComponent(id)}&status=${encodeURIComponent(action)}`
+
+        headers: {
+            'Content-Type':
+            'application/json'
+        },
+
+        body: JSON.stringify({
+
+            id: id,
+
+            status: action
+        })
+
     })
-    .then(async res => {
-        const text = await res.text();
-        try {
-            return JSON.parse(text);
-        } catch(err) {
-            console.error("Non-JSON Response:", text);
-            throw new Error("Registry Response Invalid");
-        }
-    })
+
+    .then(response => response.json())
+
     .then(data => {
-        if(data && data.success) {
-            // Smooth "Silk Management" exit
-            card.style.transform = 'scale(0.9) translateY(40px)';
+
+        if(data.success){
+
+            card.style.transition =
+                'all .45s ease';
+
             card.style.opacity = '0';
+
+            card.style.transform =
+                'translateY(40px) scale(.9)';
+
             setTimeout(() => {
+
                 card.remove();
-                // Check if grid is empty now
-                const grid = document.querySelector('.leave-grid');
-                if(grid.children.length === 0) {
-                    location.reload(); // Refresh to show "No pending applications"
+
+                const cards =
+                    document.querySelectorAll(
+                        '[id^="leave-card-"]'
+                    );
+
+                if(cards.length === 0){
+
+                    const grid =
+                        document.querySelector(
+                            '.leave-grid'
+                        );
+
+                    grid.innerHTML = `
+
+                        <div
+                            style="
+                                grid-column:1/-1;
+                                text-align:center;
+                                padding:100px;
+                                color:#64748b;
+                                background:rgba(15,23,42,.4);
+                                border-radius:20px;
+                                border:1px dashed rgba(255,255,255,.1);
+                            "
+                        >
+
+                            <i
+                                class="fa-solid fa-calendar-check"
+                                style="
+                                    font-size:3rem;
+                                    opacity:.2;
+                                    margin-bottom:15px;
+                                "
+                            ></i>
+
+                            <p>
+
+                                No pending leave applications
+                                in the registry.
+
+                            </p>
+
+                        </div>
+
+                    `;
                 }
+
             }, 450);
+
         } else {
-            alert("Registry Error: " + (data ? data.message : "Access Denied"));
-            if(btn) {
+
+            alert(
+                'Registry Error: ' +
+                data.message
+            );
+
+            if(btn){
+
+                btn.disabled = false;
+
                 btn.style.opacity = '1';
-                btn.style.pointerEvents = 'auto';
-                btn.innerHTML = action === 'Approved' ? 'Approve & Sync' : 'Reject';
+
+                btn.innerHTML =
+                    action === 'Approved'
+                    ? 'Approve & Sync'
+                    : 'Reject';
             }
         }
+
     })
-    .catch(err => {
-        console.error("Fetch Error:", err);
-        alert("CRITICAL ERROR: Governance Node link failed.");
-        if(btn) {
+
+    .catch(error => {
+
+        console.error(error);
+
+        alert(
+            'CRITICAL ERROR: Governance Node link failed.'
+        );
+
+        if(btn){
+
+            btn.disabled = false;
+
             btn.style.opacity = '1';
-            btn.style.pointerEvents = 'auto';
-            btn.innerHTML = action === 'Approved' ? 'Approve & Sync' : 'Reject';
+
+            btn.innerHTML =
+                action === 'Approved'
+                ? 'Approve & Sync'
+                : 'Reject';
         }
+
     });
+
+    return false;
 };
 </script>

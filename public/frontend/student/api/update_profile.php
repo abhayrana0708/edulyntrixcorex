@@ -1,84 +1,380 @@
 <?php
-session_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 header('Content-Type: application/json');
+
 require_once '../../../../includes/db_connect.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SESSION['student_id'])) {
-    
-    $sid = (string)$_SESSION['student_id'];
-    $phone   = $_POST['phone'] ?? '';
-    $email   = $_POST['email'] ?? '';
-    $address = $_POST['address'] ?? '';
+/*
+|--------------------------------------------------------------------------
+| AUTH CHECK
+|--------------------------------------------------------------------------
+*/
+
+if (!isset($_SESSION['student_id'])) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Unauthorized Access'
+    ]);
+
+    exit;
+}
+
+/*
+|--------------------------------------------------------------------------
+| METHOD CHECK
+|--------------------------------------------------------------------------
+*/
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid Request Method'
+    ]);
+
+    exit;
+}
+
+$student_id =
+    trim($_SESSION['student_id']);
+
+$phone =
+    trim($_POST['phone'] ?? '');
+
+$email =
+    trim($_POST['email'] ?? '');
+
+$address =
+    trim($_POST['address'] ?? '');
+
+/*
+|--------------------------------------------------------------------------
+| VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+if (
+    empty($phone) ||
+    empty($email)
+) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Required fields missing'
+    ]);
+
+    exit;
+}
+
+if (
+    !filter_var(
+        $email,
+        FILTER_VALIDATE_EMAIL
+    )
+) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid Email Address'
+    ]);
+
+    exit;
+}
+
+if (
+    !preg_match(
+        '/^[6-9][0-9]{9}$/',
+        $phone
+    )
+) {
+
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid Mobile Number'
+    ]);
+
+    exit;
+}
+try {
+
+    $pdo->beginTransaction();
+
+    /*
+    |--------------------------------------------------------------------------
+    | DUPLICATE EMAIL CHECK
+    |--------------------------------------------------------------------------
+    */
+
+    $checkEmail = $pdo->prepare("
+        SELECT student_id
+        FROM students
+        WHERE email = ?
+        AND student_id != ?
+        LIMIT 1
+    ");
+
+    $checkEmail->execute([
+        $email,
+        $student_id
+    ]);
+
+    if ($checkEmail->fetch()) {
+
+        throw new Exception(
+            'Email already exists.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FETCH CURRENT PROFILE IMAGE
+    |--------------------------------------------------------------------------
+    */
+
+    $currentStmt = $pdo->prepare("
+        SELECT profile_pic
+        FROM students
+        WHERE student_id = ?
+        LIMIT 1
+    ");
+
+    $currentStmt->execute([
+        $student_id
+    ]);
+
+    $currentUser =
+        $currentStmt->fetch(
+            PDO::FETCH_ASSOC
+        );
+
     $new_pic_name = null;
 
-    try {
-        $pdo->beginTransaction();
+    /*
+    |--------------------------------------------------------------------------
+    | PROFILE IMAGE UPLOAD
+    |--------------------------------------------------------------------------
+    */
 
-        if (isset($_FILES['profile_pic']) && $_FILES['profile_pic']['error'] === UPLOAD_ERR_OK) {
-            $fileTmpPath = $_FILES['profile_pic']['tmp_name'];
-            $fileExtension = strtolower(pathinfo($_FILES['profile_pic']['name'], PATHINFO_EXTENSION));
-            $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+    if (
+        isset($_FILES['profile_pic']) &&
+        $_FILES['profile_pic']['error']
+            === UPLOAD_ERR_OK
+    ) {
 
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $new_pic_name = "STU_" . $sid . "_" . time() . "." . $fileExtension;
-                
-                // --- ROBUST PATH LOGIC FOR MAC/LINUX ---
-                // 1. Try Absolute Path via DOCUMENT_ROOT (Most reliable on macOS)
-                $abs_path = $_SERVER['DOCUMENT_ROOT'] . "/edulyntrixcorex/uploads/profiles/";
-                // 2. Fallback to Relative Path
-                $rel_path = "../../../../uploads/profiles/";
-                
-                // Determine which one to use
-                $upload_dir = is_dir($abs_path) ? $abs_path : $rel_path;
+        if (
+            $_FILES['profile_pic']['size']
+            >
+            (2 * 1024 * 1024)
+        ) {
 
-                // Final safety check/creation
-                if (!file_exists($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
+            throw new Exception(
+                'Image exceeds 2MB limit.'
+            );
+        }
 
-                $dest_path = $upload_dir . $new_pic_name;
+        $mime =
+            mime_content_type(
+                $_FILES['profile_pic']['tmp_name']
+            );
 
-                if (move_uploaded_file($fileTmpPath, $dest_path)) {
-                    // Success: Update DB
-                    $sql_pic = "UPDATE students SET profile_pic = :pic WHERE student_id = :sid";
-                    $stmt_pic = $pdo->prepare($sql_pic);
-                    $stmt_pic->bindValue(':pic', $new_pic_name, PDO::PARAM_STR);
-                    $stmt_pic->bindValue(':sid', $sid, PDO::PARAM_STR);
-                    $stmt_pic->execute();
-                } else {
-                    // Check specifically for Mac permissions in the error message
-                    if (!is_writable($upload_dir)) {
-                        throw new Exception("Permission Denied: Run 'chmod -R 777 uploads' in terminal.");
-                    }
-                    throw new Exception("File move failed. Check PHP upload_max_filesize in php.ini.");
-                }
-            } else {
-                echo json_encode(['status' => 'error', 'message' => 'Invalid file format.']);
-                exit;
+        $allowed = [
+
+            'image/jpeg' => 'jpg',
+
+            'image/png'  => 'png',
+
+            'image/webp' => 'webp'
+        ];
+
+        if (!isset($allowed[$mime])) {
+
+            throw new Exception(
+                'Invalid image format.'
+            );
+        }
+
+        if (
+            getimagesize(
+                $_FILES['profile_pic']['tmp_name']
+            ) === false
+        ) {
+
+            throw new Exception(
+                'Invalid image file.'
+            );
+        }
+
+        $uploadDir =
+            dirname(__DIR__, 4)
+            .
+            '/uploads/profiles/';
+
+        if (!is_dir($uploadDir)) {
+
+            mkdir(
+                $uploadDir,
+                0755,
+                true
+            );
+        }
+
+        $new_pic_name =
+            'STU_' .
+            $student_id .
+            '_' .
+            time() .
+            '.' .
+            $allowed[$mime];
+
+        $destination =
+            $uploadDir .
+            $new_pic_name;
+
+        if (
+            !move_uploaded_file(
+                $_FILES['profile_pic']['tmp_name'],
+                $destination
+            )
+        ) {
+
+            throw new Exception(
+                'Profile upload failed.'
+            );
+        }
+                /*
+        |--------------------------------------------------------------------------
+        | REMOVE OLD IMAGE
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+
+            !empty($currentUser['profile_pic'])
+
+            &&
+
+            $currentUser['profile_pic'] !== 'default.png'
+
+            &&
+
+            $currentUser['profile_pic'] !== 'default_avatar.png'
+
+        ) {
+
+            $oldFile =
+
+                $uploadDir
+
+                .
+
+                $currentUser['profile_pic'];
+
+            if (file_exists($oldFile)) {
+
+                @unlink($oldFile);
             }
         }
 
-        // Update text data
-        $sql = "UPDATE students SET phone = :phone, email = :email, address = :address WHERE student_id = :sid";
-        $stmt = $pdo->prepare($sql);
-        $stmt->bindValue(':phone', $phone, PDO::PARAM_STR);
-        $stmt->bindValue(':email', $email, PDO::PARAM_STR);
-        $stmt->bindValue(':address', $address, PDO::PARAM_STR);
-        $stmt->bindValue(':sid', $sid, PDO::PARAM_STR);
-        $stmt->execute();
+        /*
+        |--------------------------------------------------------------------------
+        | UPDATE PROFILE PIC
+        |--------------------------------------------------------------------------
+        */
 
-        $pdo->commit();
+        $picStmt = $pdo->prepare("
+            UPDATE students
+            SET profile_pic = ?
+            WHERE student_id = ?
+        ");
 
-        echo json_encode([
-            'status' => 'success', 
-            'message' => 'Nexus Synced Successfully.',
-            'new_pic' => $new_pic_name
+        $picStmt->execute([
+
+            $new_pic_name,
+
+            $student_id
         ]);
-
-    } catch (Exception $e) {
-        if ($pdo->inTransaction()) { $pdo->rollBack(); }
-        echo json_encode(['status' => 'error', 'message' => 'Sync Failure: ' . $e->getMessage()]);
     }
-} else {
-    echo json_encode(['status' => 'error', 'message' => 'Unauthorized Access.']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE PROFILE DATA
+    |--------------------------------------------------------------------------
+    */
+
+    $updateStmt = $pdo->prepare("
+        UPDATE students
+        SET
+
+            phone = ?,
+            email = ?,
+            address = ?
+
+        WHERE student_id = ?
+    ");
+
+    $updateStmt->execute([
+
+        $phone,
+
+        $email,
+
+        $address,
+
+        $student_id
+    ]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | COMMIT
+    |--------------------------------------------------------------------------
+    */
+
+    $pdo->commit();
+
+    $_SESSION['email'] = $email;
+
+    if ($new_pic_name) {
+
+        $_SESSION['profile_pic'] =
+            $new_pic_name;
+    }
+
+    echo json_encode([
+
+        'status'  => 'success',
+
+        'message' =>
+            'Profile updated successfully.',
+
+        'new_pic' =>
+            $new_pic_name
+    ]);
+
+} catch (Exception $e) {
+
+    if (
+
+        isset($pdo)
+
+        &&
+
+        $pdo->inTransaction()
+
+    ) {
+
+        $pdo->rollBack();
+    }
+
+    echo json_encode([
+
+        'status' => 'error',
+
+        'message' =>
+            $e->getMessage()
+    ]);
 }
