@@ -14,9 +14,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-/* ============================================================
+/*
 RESET OLD SESSION
-============================================================ */
+ */
 
 if (
     isset($_SESSION['logged_in'])
@@ -31,13 +31,14 @@ if (
 DATABASE
 ============================================================ */
 
-$db_path =
-    $_SERVER['DOCUMENT_ROOT']
-    . '/EdulyntrixCoreX/includes/db_connect.php';
+$db_path = dirname(__DIR__, 3) . '/includes/db_connect.php';
 
 if (!file_exists($db_path)) {
 
-    die("CRITICAL_SYSTEM_FAILURE");
+    die(
+        "Database file not found:<br>" .
+        htmlspecialchars($db_path)
+    );
 }
 
 require_once $db_path;
