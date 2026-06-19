@@ -283,21 +283,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($role === 'hod') {
 
                         $redirect =
-                            '/EdulyntrixCoreX/public/frontend/staff/hod/dashboard.php';
+                            '/edulyntrixcorex/public/frontend/staff/hod/dashboard.php';
 
                     }
 
                     elseif ($role === 'admin') {
 
                         $redirect =
-                            '/EdulyntrixCoreX/corex_root/layout.php?page=dashboard';
+                            '/edulyntrixcorex/corex_root/layout.php?page=dashboard';
 
                     }
 
                     else {
 
                         $redirect =
-                            '/EdulyntrixCoreX/public/frontend/staff/faculty_dashboard.php';
+                            '/edulyntrixcorex/public/frontend/staff/faculty_dashboard.php';
                     }
 
                     header(
